@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   Atom,
@@ -15,12 +15,15 @@ import {
   Menu,
   MessageSquareText,
   Play,
+  Power,
   Rocket,
   Search,
+  Smartphone,
   Sparkles,
   Star,
   Telescope,
   User,
+  Wifi,
   X,
 } from 'lucide-react';
 import VRScene from './VRScene.jsx';
@@ -33,6 +36,9 @@ const subjects = [
     modules: 12,
     progress: 74,
     note: 'Solar systems, orbital motion, stellar life cycles',
+    labTitle: 'Solar Motion Fundamentals',
+    labFocus: 'Interactive orbital mechanics simulation',
+    subtopics: ['Solar System', 'Orbital Motion', 'Moon Phases', 'Stellar Life Cycle'],
   },
   {
     title: 'Physics',
@@ -41,6 +47,9 @@ const subjects = [
     modules: 9,
     progress: 58,
     note: 'Forces, waves, fields, quantum fundamentals',
+    labTitle: 'Quantum Force Field',
+    labFocus: 'Particle energy, orbitals, and magnetic fields',
+    subtopics: ['Forces', 'Energy Transfer', 'Waves', 'Electric Fields'],
   },
   {
     title: 'Biology',
@@ -49,6 +58,9 @@ const subjects = [
     modules: 8,
     progress: 43,
     note: 'Cells, ecosystems, genetics, human systems',
+    labTitle: 'Inside the Living Cell',
+    labFocus: 'DNA, organelles, and cellular energy systems',
+    subtopics: ['Cell Structure', 'DNA & Genes', 'Mitochondria', 'Ecosystems'],
   },
   {
     title: 'AI Literacy',
@@ -57,6 +69,9 @@ const subjects = [
     modules: 10,
     progress: 68,
     note: 'Prompting, model behavior, ethics, data patterns',
+    labTitle: 'Neural Network Studio',
+    labFocus: 'Inputs, hidden layers, outputs, and training signals',
+    subtopics: ['Data Inputs', 'Neural Networks', 'Prompting', 'AI Ethics'],
   },
 ];
 
@@ -67,23 +82,192 @@ const navItems = [
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
 ];
 
-const quizQuestions = [
-  {
-    prompt: 'Which force keeps planets moving in orbit around the Sun?',
-    answers: ['Gravity', 'Magnetism', 'Photosynthesis', 'Friction'],
-    correct: 0,
+const quizBank = {
+  Astronomy: {
+    'Solar System': [
+      {
+        prompt: 'Which force keeps planets moving in orbit around the Sun?',
+        answers: ['Gravity', 'Magnetism', 'Photosynthesis', 'Friction'],
+        correct: 0,
+      },
+      {
+        prompt: 'Which planet is famous for its wide ring system?',
+        answers: ['Mars', 'Saturn', 'Mercury', 'Venus'],
+        correct: 1,
+      },
+      {
+        prompt: 'What object sits at the center of our solar system?',
+        answers: ['Earth', 'The Moon', 'The Sun', 'Jupiter'],
+        correct: 2,
+      },
+      {
+        prompt: 'Why do planets look like they move along paths in the VR lab?',
+        answers: ['They follow orbital paths', 'They stop rotating', 'They create oxygen', 'They become stars'],
+        correct: 0,
+      },
+    ],
+    'Orbital Motion': [
+      {
+        prompt: 'What does a larger orbital distance usually mean?',
+        answers: ['A shorter year', 'A longer orbital period', 'No rotation', 'No atmosphere'],
+        correct: 1,
+      },
+      {
+        prompt: 'Which pair controls a stable orbit?',
+        answers: ['Gravity and forward velocity', 'Color and size', 'Sound and heat', 'Clouds and rain'],
+        correct: 0,
+      },
+      {
+        prompt: 'What happens if orbital speed is too low?',
+        answers: ['The object may fall inward', 'The object becomes invisible', 'Gravity disappears', 'The orbit becomes a plant'],
+        correct: 0,
+      },
+      {
+        prompt: 'Why is a VR orbit useful for learning?',
+        answers: ['It makes scale and motion visible', 'It removes all data', 'It replaces science', 'It hides cause and effect'],
+        correct: 0,
+      },
+    ],
   },
-  {
-    prompt: 'What does a larger orbital distance usually mean?',
-    answers: ['A shorter year', 'A longer orbital period', 'No rotation', 'No atmosphere'],
-    correct: 1,
+  Physics: {
+    Forces: [
+      {
+        prompt: 'What is a force?',
+        answers: ['A push or pull', 'A color', 'A living cell', 'A database'],
+        correct: 0,
+      },
+      {
+        prompt: 'Which unit measures force?',
+        answers: ['Newton', 'Liter', 'Byte', 'Degree Celsius'],
+        correct: 0,
+      },
+      {
+        prompt: 'What can a force change?',
+        answers: ['Motion', 'Only color', 'Only text', 'Nothing'],
+        correct: 0,
+      },
+      {
+        prompt: 'In the Physics VR lab, field lines help show what?',
+        answers: ['Invisible interactions', 'Plant growth', 'Planet names', 'Login status'],
+        correct: 0,
+      },
+    ],
+    'Energy Transfer': [
+      {
+        prompt: 'What is energy transfer?',
+        answers: ['Energy moving between systems', 'Deleting matter', 'Stopping all motion', 'Changing a username'],
+        correct: 0,
+      },
+      {
+        prompt: 'An excited electron has what kind of state?',
+        answers: ['Higher energy', 'No mass', 'No charge', 'No position'],
+        correct: 0,
+      },
+      {
+        prompt: 'Which form can energy take?',
+        answers: ['Kinetic', 'Alphabetical', 'Transparent', 'Archived'],
+        correct: 0,
+      },
+      {
+        prompt: 'Why animate particles in VR?',
+        answers: ['To reveal motion and energy changes', 'To remove variables', 'To hide measurements', 'To stop interaction'],
+        correct: 0,
+      },
+    ],
   },
-  {
-    prompt: 'Which interaction would a VR science lesson model best?',
-    answers: ['Only static text', 'Spatial scale and motion', 'Attendance sheets', 'File storage'],
-    correct: 1,
+  Biology: {
+    'Cell Structure': [
+      {
+        prompt: 'What part of a cell stores genetic instructions?',
+        answers: ['Nucleus', 'Keyboard', 'Orbit', 'Magnet'],
+        correct: 0,
+      },
+      {
+        prompt: 'What surrounds and protects a cell?',
+        answers: ['Cell membrane', 'Solar ring', 'Prompt token', 'Electric outlet'],
+        correct: 0,
+      },
+      {
+        prompt: 'Which organelle helps produce usable cell energy?',
+        answers: ['Mitochondria', 'Mercury', 'Electron cloud', 'Router'],
+        correct: 0,
+      },
+      {
+        prompt: 'Why is a 3D cell lab useful?',
+        answers: ['It shows spatial relationships between organelles', 'It hides cell parts', 'It removes labels', 'It turns cells into stars'],
+        correct: 0,
+      },
+    ],
+    'DNA & Genes': [
+      {
+        prompt: 'What shape is DNA commonly modeled as?',
+        answers: ['Double helix', 'Flat square', 'Single dot', 'Straight wall'],
+        correct: 0,
+      },
+      {
+        prompt: 'Genes are segments of what molecule?',
+        answers: ['DNA', 'Water', 'Iron', 'Oxygen'],
+        correct: 0,
+      },
+      {
+        prompt: 'What does DNA help encode?',
+        answers: ['Biological instructions', 'Planet orbits', 'Wi-Fi passwords', 'Keyboard shortcuts'],
+        correct: 0,
+      },
+      {
+        prompt: 'In the Biology VR lab, selecting the helix focuses on what?',
+        answers: ['Genetic structure', 'Gravity', 'Neural layers', 'Magnetic poles'],
+        correct: 0,
+      },
+    ],
   },
-];
+  'AI Literacy': {
+    'Data Inputs': [
+      {
+        prompt: 'What is an input in an AI system?',
+        answers: ['Data given to the model', 'The final answer only', 'A planet ring', 'A cell membrane'],
+        correct: 0,
+      },
+      {
+        prompt: 'Why does data quality matter?',
+        answers: ['It affects model output', 'It changes gravity', 'It removes all bias automatically', 'It stops computation'],
+        correct: 0,
+      },
+      {
+        prompt: 'What can input tokens represent?',
+        answers: ['Pieces of text or data', 'Only planets', 'Only cells', 'Only passwords'],
+        correct: 0,
+      },
+      {
+        prompt: 'In the AI VR lab, moving cubes represent what?',
+        answers: ['Training signals', 'Cell nuclei', 'Planet moons', 'Friction blocks'],
+        correct: 0,
+      },
+    ],
+    'Neural Networks': [
+      {
+        prompt: 'What is a hidden layer?',
+        answers: ['A processing layer between input and output', 'A deleted file', 'A planet orbit', 'A microscope lens'],
+        correct: 0,
+      },
+      {
+        prompt: 'What does an output node produce?',
+        answers: ['A prediction or response', 'A cell wall', 'A magnetic ring', 'A telescope'],
+        correct: 0,
+      },
+      {
+        prompt: 'What do connections between nodes represent?',
+        answers: ['Learned relationships or weights', 'Random decoration', 'Planet gravity only', 'DNA bases only'],
+        correct: 0,
+      },
+      {
+        prompt: 'Why visualize AI as a network?',
+        answers: ['To make data flow easier to understand', 'To hide decisions', 'To replace learning', 'To stop questions'],
+        correct: 0,
+      },
+    ],
+  },
+};
 
 const weeklyProgress = [
   { day: 'Mon', value: 38 },
@@ -94,6 +278,10 @@ const weeklyProgress = [
   { day: 'Sat', value: 68 },
   { day: 'Sun', value: 77 },
 ];
+
+function getSubject(title) {
+  return subjects.find((subject) => subject.title === title) ?? subjects[0];
+}
 
 function Login({ onLogin }) {
   return (
@@ -114,7 +302,7 @@ function Login({ onLogin }) {
           </p>
           <div className="mt-8 grid max-w-2xl gap-4 sm:grid-cols-3">
             {[
-              ['3D labs', 'Live solar simulation'],
+              ['3D labs', 'Four simulation modes'],
               ['AI coach', 'Context-aware help'],
               ['Analytics', 'Progress signals'],
             ].map(([label, value]) => (
@@ -268,6 +456,111 @@ function Topbar({ activeSubject }) {
   );
 }
 
+function SubtopicPanel({ activeSubject }) {
+  const subject = getSubject(activeSubject);
+
+  return (
+    <section className="glass rounded-[8px] p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-mint">Sub materi</p>
+          <h3 className="font-display text-2xl font-bold text-white">{subject.labTitle}</h3>
+        </div>
+        <BookOpen className="text-pulse" size={26} />
+      </div>
+      <p className="mb-4 text-sm leading-6 text-white/62">{subject.labFocus}</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {subject.subtopics.map((topic, index) => (
+          <div key={topic} className="rounded-[8px] border border-white/10 bg-white/7 p-4 transition hover:border-pulse/40 hover:bg-pulse/10">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-white/44">Section {index + 1}</span>
+              <Star size={16} className="text-solar" />
+            </div>
+            <p className="font-semibold text-white">{topic}</p>
+            <p className="mt-2 text-sm leading-6 text-white/56">
+              VR micro-lesson, concept checkpoint, and quiz practice for this section.
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function VRDevicePanel({ activeSubject }) {
+  const [mode, setMode] = useState('Digital VR');
+  const [connected, setConnected] = useState(false);
+
+  return (
+    <section className="glass rounded-[8px] p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-pulse">Hybrid VR Access</p>
+          <h3 className="font-display text-2xl font-bold text-white">Connect Learning Device</h3>
+        </div>
+        <div className={`grid h-12 w-12 place-items-center rounded-[8px] ${connected ? 'bg-mint/16 text-mint' : 'bg-white/8 text-pulse'}`}>
+          <Wifi size={24} />
+        </div>
+      </div>
+      <p className="text-sm leading-6 text-white/64">
+        Smart Learning VR supports two modes: browser-based Digital VR for laptops/tablets and headset mode for immersive
+        classroom or home VR sessions.
+      </p>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        {[
+          { label: 'Digital VR', detail: 'Use keyboard, touch, or mouse', icon: Smartphone },
+          { label: 'Headset VR', detail: 'Pair a VR headset or lab device', icon: Rocket },
+        ].map((item) => {
+          const Icon = item.icon;
+          const active = mode === item.label;
+          return (
+            <button
+              key={item.label}
+              className={`rounded-[8px] border p-4 text-left transition ${
+                active
+                  ? 'border-pulse/60 bg-pulse/14 text-white shadow-neon'
+                  : 'border-white/10 bg-white/7 text-white/64 hover:border-white/24 hover:text-white'
+              }`}
+              onClick={() => {
+                setMode(item.label);
+                setConnected(false);
+              }}
+            >
+              <div className="mb-3 flex items-center gap-3">
+                <Icon size={20} className={active ? 'text-pulse' : 'text-white/48'} />
+                <span className="font-semibold">{item.label}</span>
+              </div>
+              <p className="text-sm leading-6 text-white/58">{item.detail}</p>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-5 grid gap-3 rounded-[8px] border border-white/10 bg-black/16 p-4 md:grid-cols-[1fr_auto] md:items-center">
+        <div>
+          <p className="text-xs uppercase tracking-[0.18em] text-white/44">Current session</p>
+          <p className="mt-2 font-display text-xl font-bold text-white">
+            {activeSubject} Lab · {mode}
+          </p>
+          <p className={`mt-1 text-sm ${connected ? 'text-mint' : 'text-white/54'}`}>
+            {connected ? 'Device bridge ready for immersive lesson sync.' : 'Ready to launch in browser or connect a VR device.'}
+          </p>
+        </div>
+        <button
+          className={`flex items-center justify-center gap-2 rounded-[8px] px-5 py-3 font-bold transition ${
+            connected ? 'bg-mint text-ink hover:bg-white' : 'bg-gradient-to-r from-pulse to-plasma text-white shadow-neon hover:scale-[1.01]'
+          }`}
+          onClick={() => setConnected((current) => !current)}
+        >
+          <Power size={18} />
+          {connected ? 'Connected' : mode === 'Headset VR' ? 'Pair Headset' : 'Launch Digital VR'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function SubjectCards({ activeSubject, setActiveSubject, setActiveView }) {
   return (
     <section className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
@@ -294,6 +587,13 @@ function SubjectCards({ activeSubject, setActiveSubject, setActiveView }) {
               </div>
               <h3 className="mt-5 font-display text-2xl font-bold text-white">{subject.title}</h3>
               <p className="mt-2 flex-1 text-sm leading-6 text-white/62">{subject.note}</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {subject.subtopics.slice(0, 3).map((topic) => (
+                  <span key={topic} className="rounded-full border border-white/10 bg-white/7 px-3 py-1 text-xs text-white/58">
+                    {topic}
+                  </span>
+                ))}
+              </div>
               <div className="mt-5">
                 <div className="mb-2 flex justify-between text-xs text-white/50">
                   <span>Completion</span>
@@ -312,6 +612,8 @@ function SubjectCards({ activeSubject, setActiveSubject, setActiveView }) {
 }
 
 function Dashboard({ activeSubject, setActiveSubject, setActiveView }) {
+  const subject = getSubject(activeSubject);
+
   return (
     <div className="space-y-5">
       <Topbar activeSubject={activeSubject} />
@@ -322,16 +624,20 @@ function Dashboard({ activeSubject, setActiveSubject, setActiveView }) {
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.2em] text-mint">Live lesson</p>
-                <h3 className="font-display text-2xl font-bold text-white">Solar Motion Fundamentals</h3>
+                <h3 className="font-display text-2xl font-bold text-white">{subject.labTitle}</h3>
               </div>
               <Rocket className="text-pulse" size={28} />
             </div>
             <VRScene activeSubject={activeSubject} />
           </div>
+          <div className="grid gap-5 xl:grid-cols-2">
+            <SubtopicPanel activeSubject={activeSubject} />
+            <VRDevicePanel activeSubject={activeSubject} />
+          </div>
         </div>
         <div className="space-y-5">
           <ProgressPanel />
-          <QuizPanel compact />
+          <QuizPanel compact activeSubject={activeSubject} />
         </div>
       </div>
     </div>
@@ -372,11 +678,32 @@ function ProgressPanel() {
   );
 }
 
-function QuizPanel({ compact = false }) {
+function QuizPanel({ compact = false, activeSubject = 'Astronomy' }) {
+  const [quizSubject, setQuizSubject] = useState(activeSubject);
+  const sections = Object.keys(quizBank[quizSubject] ?? quizBank.Astronomy);
+  const [activeSection, setActiveSection] = useState(sections[0]);
   const [answers, setAnswers] = useState({});
+  const questions = quizBank[quizSubject]?.[activeSection] ?? quizBank[quizSubject]?.[sections[0]] ?? [];
+  const displayQuestions = compact ? questions.slice(0, 2) : questions;
+
+  useEffect(() => {
+    setQuizSubject(activeSubject);
+  }, [activeSubject]);
+
+  useEffect(() => {
+    const nextSections = Object.keys(quizBank[quizSubject] ?? quizBank.Astronomy);
+    if (!nextSections.includes(activeSection)) {
+      setActiveSection(nextSections[0]);
+    }
+  }, [activeSection, quizSubject]);
+
   const score = useMemo(
-    () => quizQuestions.reduce((total, question, index) => total + (answers[index] === question.correct ? 1 : 0), 0),
-    [answers],
+    () =>
+      displayQuestions.reduce((total, question, index) => {
+        const answerKey = `${quizSubject}-${activeSection}-${index}`;
+        return total + (answers[answerKey] === question.correct ? 1 : 0);
+      }, 0),
+    [activeSection, answers, displayQuestions, quizSubject],
   );
 
   return (
@@ -384,20 +711,57 @@ function QuizPanel({ compact = false }) {
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-solar">Adaptive Quiz</p>
-          <h3 className="font-display text-2xl font-bold text-white">Orbit Checkpoint</h3>
+          <h3 className="font-display text-2xl font-bold text-white">{quizSubject} Checkpoint</h3>
         </div>
         <div className="rounded-[8px] border border-solar/22 bg-solar/10 px-4 py-2 text-right">
           <p className="text-xs text-white/48">Score</p>
-          <p className="font-display text-xl font-bold text-solar">{score}/{quizQuestions.length}</p>
+          <p className="font-display text-xl font-bold text-solar">{score}/{displayQuestions.length}</p>
         </div>
       </div>
-      <div className={`grid gap-4 ${compact ? '' : 'lg:grid-cols-3'}`}>
-        {quizQuestions.map((question, index) => (
+
+      {!compact && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {subjects.map((subject) => (
+            <button
+              key={subject.title}
+              className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                quizSubject === subject.title
+                  ? 'border-pulse/60 bg-pulse/14 text-pulse'
+                  : 'border-white/10 bg-white/7 text-white/60 hover:border-white/24 hover:text-white'
+              }`}
+              onClick={() => setQuizSubject(subject.title)}
+            >
+              {subject.title}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="mb-5 flex flex-wrap gap-2">
+        {sections.map((section) => (
+          <button
+            key={section}
+            className={`rounded-[8px] border px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition ${
+              activeSection === section
+                ? 'border-solar/60 bg-solar/12 text-solar'
+                : 'border-white/10 bg-black/12 text-white/52 hover:border-solar/35 hover:text-white'
+            }`}
+            onClick={() => setActiveSection(section)}
+          >
+            {section}
+          </button>
+        ))}
+      </div>
+
+      <div className={`grid gap-4 ${compact ? '' : 'lg:grid-cols-2 2xl:grid-cols-4'}`}>
+        {displayQuestions.map((question, index) => {
+          const answerKey = `${quizSubject}-${activeSection}-${index}`;
+          return (
           <article key={question.prompt} className="rounded-[8px] border border-white/10 bg-white/7 p-4">
             <p className="mb-4 min-h-[48px] text-sm font-semibold leading-6 text-white">{question.prompt}</p>
             <div className="space-y-2">
               {question.answers.map((answer, answerIndex) => {
-                const chosen = answers[index] === answerIndex;
+                const chosen = answers[answerKey] === answerIndex;
                 const correct = question.correct === answerIndex;
                 return (
                   <button
@@ -409,7 +773,7 @@ function QuizPanel({ compact = false }) {
                           : 'border-plasma/60 bg-plasma/12 text-plasma'
                         : 'border-white/10 bg-black/12 text-white/70 hover:border-pulse/45 hover:text-white'
                     }`}
-                    onClick={() => setAnswers((current) => ({ ...current, [index]: answerIndex }))}
+                    onClick={() => setAnswers((current) => ({ ...current, [answerKey]: answerIndex }))}
                   >
                     {answer}
                     {chosen && <CheckCircle2 size={16} />}
@@ -418,7 +782,8 @@ function QuizPanel({ compact = false }) {
               })}
             </div>
           </article>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
@@ -521,13 +886,17 @@ function AppShell() {
       <div className="space-y-5">
         <Topbar activeSubject={activeSubject} />
         <VRScene activeSubject={activeSubject} />
+        <div className="grid gap-5 xl:grid-cols-2">
+          <SubtopicPanel activeSubject={activeSubject} />
+          <VRDevicePanel activeSubject={activeSubject} />
+        </div>
         <SubjectCards activeSubject={activeSubject} setActiveSubject={setActiveSubject} setActiveView={setActiveView} />
       </div>
     ),
     quiz: (
       <div className="space-y-5">
         <Topbar activeSubject="Quiz" />
-        <QuizPanel />
+        <QuizPanel activeSubject={activeSubject} />
       </div>
     ),
     analytics: <Analytics />,

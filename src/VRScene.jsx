@@ -1,29 +1,360 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 
+const sceneProfiles = {
+  Astronomy: {
+    defaultObject: 'Earth',
+    statLabel: 'Orbital velocity',
+    statSuffix: 'x',
+    instruction:
+      'Guide the camera across the solar system. Select a planet to inspect its orbital motion and relative speed.',
+  },
+  Physics: {
+    defaultObject: 'Electron Cloud',
+    statLabel: 'Energy state',
+    statSuffix: ' eV',
+    instruction:
+      'Move through the quantum field lab. Select orbitals, particles, or field lines to connect forces with motion.',
+  },
+  Biology: {
+    defaultObject: 'DNA Helix',
+    statLabel: 'Cell activity',
+    statSuffix: '%',
+    instruction:
+      'Explore the living cell environment. Select organelles and DNA structures to reveal their biological function.',
+  },
+  'AI Literacy': {
+    defaultObject: 'Hidden Layer',
+    statLabel: 'Model confidence',
+    statSuffix: '%',
+    instruction:
+      'Inspect a neural network in motion. Select layers, nodes, or data signals to understand how AI transforms inputs.',
+  },
+};
+
 const planetData = [
-  { name: 'Mercury', color: '#b9a68b', radius: 0.42, distance: 2.1, speed: 1.45, tilt: 0.1 },
-  { name: 'Venus', color: '#f3b46f', radius: 0.58, distance: 3.0, speed: 1.05, tilt: -0.22 },
-  { name: 'Earth', color: '#31c8ff', radius: 0.62, distance: 4.05, speed: 0.82, tilt: 0.36 },
-  { name: 'Mars', color: '#ff6d4a', radius: 0.5, distance: 5.15, speed: 0.63, tilt: -0.14 },
-  { name: 'Jupiter', color: '#ffd48c', radius: 1.05, distance: 6.85, speed: 0.38, tilt: 0.2 },
-  { name: 'Saturn', color: '#d9bf7a', radius: 0.9, distance: 8.55, speed: 0.28, tilt: -0.32 },
+  { name: 'Mercury', color: '#b9a68b', radius: 0.42, distance: 2.1, speed: 1.45, tilt: 0.1, metric: 1.45 },
+  { name: 'Venus', color: '#f3b46f', radius: 0.58, distance: 3.0, speed: 1.05, tilt: -0.22, metric: 1.05 },
+  { name: 'Earth', color: '#31c8ff', radius: 0.62, distance: 4.05, speed: 0.82, tilt: 0.36, metric: 0.82 },
+  { name: 'Mars', color: '#ff6d4a', radius: 0.5, distance: 5.15, speed: 0.63, tilt: -0.14, metric: 0.63 },
+  { name: 'Jupiter', color: '#ffd48c', radius: 1.05, distance: 6.85, speed: 0.38, tilt: 0.2, metric: 0.38 },
+  { name: 'Saturn', color: '#d9bf7a', radius: 0.9, distance: 8.55, speed: 0.28, tilt: -0.32, metric: 0.28 },
 ];
+
+function makeMaterial(color, emissiveIntensity = 0.22) {
+  return new THREE.MeshStandardMaterial({
+    color,
+    emissive: color,
+    emissiveIntensity,
+    metalness: 0.14,
+    roughness: 0.48,
+  });
+}
+
+function addStarfield(scene, disposables) {
+  const geometry = new THREE.BufferGeometry();
+  const positions = [];
+
+  for (let i = 0; i < 900; i += 1) {
+    const radius = 22 + Math.random() * 34;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    positions.push(
+      radius * Math.sin(phi) * Math.cos(theta),
+      radius * Math.sin(phi) * Math.sin(theta),
+      radius * Math.cos(phi),
+    );
+  }
+
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  const material = new THREE.PointsMaterial({ color: 0xbdf8ff, size: 0.045, transparent: true, opacity: 0.82 });
+  const stars = new THREE.Points(geometry, material);
+  scene.add(stars);
+  disposables.push(geometry, material);
+  return stars;
+}
+
+function makeOrbit(distance, color = 0x7cf3ff, opacity = 0.16) {
+  return new THREE.LineLoop(
+    new THREE.BufferGeometry().setFromPoints(
+      Array.from({ length: 160 }, (_, index) => {
+        const angle = (index / 160) * Math.PI * 2;
+        return new THREE.Vector3(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
+      }),
+    ),
+    new THREE.LineBasicMaterial({ color, transparent: true, opacity }),
+  );
+}
+
+function createAstronomyScene(scene, disposables) {
+  const targets = [];
+  const animated = [];
+
+  const sun = new THREE.Mesh(
+    new THREE.SphereGeometry(1.05, 48, 48),
+    new THREE.MeshStandardMaterial({
+      color: 0xffd166,
+      emissive: 0xff7a33,
+      emissiveIntensity: 1.5,
+      roughness: 0.3,
+    }),
+  );
+  scene.add(sun);
+  animated.push({ type: 'spin', mesh: sun, speed: 0.28 });
+  disposables.push(sun.geometry, sun.material);
+
+  const halo = new THREE.Mesh(
+    new THREE.SphereGeometry(1.45, 48, 48),
+    new THREE.MeshBasicMaterial({ color: 0xff4fd8, transparent: true, opacity: 0.12, side: THREE.BackSide }),
+  );
+  scene.add(halo);
+  animated.push({ type: 'pulse', mesh: halo, speed: 1.8, amount: 0.035 });
+  disposables.push(halo.geometry, halo.material);
+
+  planetData.forEach((planet) => {
+    const orbit = makeOrbit(planet.distance);
+    scene.add(orbit);
+    disposables.push(orbit.geometry, orbit.material);
+
+    const group = new THREE.Group();
+    group.rotation.z = planet.tilt;
+
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(planet.radius, 40, 40), makeMaterial(planet.color, 0.12));
+    mesh.position.x = planet.distance;
+    mesh.userData = { name: planet.name, metric: planet.metric };
+    group.add(mesh);
+    scene.add(group);
+    disposables.push(mesh.geometry, mesh.material);
+
+    if (planet.name === 'Saturn') {
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(1.14, 1.62, 64),
+        new THREE.MeshBasicMaterial({ color: 0xffe4a8, transparent: true, opacity: 0.48, side: THREE.DoubleSide }),
+      );
+      ring.rotation.x = Math.PI / 2.8;
+      mesh.add(ring);
+      disposables.push(ring.geometry, ring.material);
+    }
+
+    targets.push(mesh);
+    animated.push({ type: 'planet', group, mesh, speed: planet.speed, distance: planet.distance });
+  });
+
+  return { targets, animated };
+}
+
+function createPhysicsScene(scene, disposables) {
+  const targets = [];
+  const animated = [];
+
+  const nucleus = new THREE.Group();
+  const nucleusColors = ['#ff4fd8', '#7cffc4', '#ffd166', '#00e5ff'];
+  Array.from({ length: 14 }, (_, index) => {
+    const angle = index * 1.7;
+    const radius = 0.18 + (index % 4) * 0.16;
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.34, 28, 28), makeMaterial(nucleusColors[index % nucleusColors.length], 0.55));
+    mesh.position.set(Math.cos(angle) * radius, Math.sin(index) * 0.22, Math.sin(angle) * radius);
+    mesh.userData = { name: index % 2 ? 'Neutron Core' : 'Proton Core', metric: 12 + index };
+    nucleus.add(mesh);
+    targets.push(mesh);
+    disposables.push(mesh.geometry, mesh.material);
+    return mesh;
+  });
+  scene.add(nucleus);
+  animated.push({ type: 'spin', mesh: nucleus, speed: 0.34 });
+
+  const electronMaterial = makeMaterial('#00e5ff', 0.75);
+  const ringAngles = [0, Math.PI / 3, -Math.PI / 3];
+  ringAngles.forEach((angle, orbitIndex) => {
+    const orbit = makeOrbit(3.1 + orbitIndex * 0.72, 0x7cffc4, 0.24);
+    orbit.rotation.x = angle;
+    scene.add(orbit);
+    disposables.push(orbit.geometry, orbit.material);
+
+    const electronGroup = new THREE.Group();
+    electronGroup.rotation.x = angle;
+    const electron = new THREE.Mesh(new THREE.SphereGeometry(0.18, 24, 24), electronMaterial);
+    electron.position.x = 3.1 + orbitIndex * 0.72;
+    electron.userData = { name: orbitIndex === 1 ? 'Electron Cloud' : 'Energy Orbital', metric: 3.6 + orbitIndex * 1.8 };
+    electronGroup.add(electron);
+    scene.add(electronGroup);
+    targets.push(electron);
+    animated.push({ type: 'electron', group: electronGroup, mesh: electron, speed: 1.4 + orbitIndex * 0.34, distance: orbitIndex });
+    disposables.push(electron.geometry);
+  });
+  disposables.push(electronMaterial);
+
+  Array.from({ length: 9 }, (_, index) => {
+    const field = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.025, 0.025, 2.6, 12),
+      new THREE.MeshBasicMaterial({ color: index % 2 ? 0xff4fd8 : 0x00e5ff, transparent: true, opacity: 0.48 }),
+    );
+    const angle = (index / 9) * Math.PI * 2;
+    field.position.set(Math.cos(angle) * 5.4, Math.sin(index) * 0.6, Math.sin(angle) * 5.4);
+    field.rotation.z = Math.PI / 2;
+    field.rotation.y = -angle;
+    field.userData = { name: 'Magnetic Field', metric: 74 };
+    scene.add(field);
+    targets.push(field);
+    animated.push({ type: 'field', mesh: field, offset: index });
+    disposables.push(field.geometry, field.material);
+    return field;
+  });
+
+  return { targets, animated };
+}
+
+function createBiologyScene(scene, disposables) {
+  const targets = [];
+  const animated = [];
+
+  const membrane = new THREE.Mesh(
+    new THREE.SphereGeometry(5.7, 64, 64),
+    new THREE.MeshBasicMaterial({ color: 0x7cffc4, transparent: true, opacity: 0.08, wireframe: true }),
+  );
+  scene.add(membrane);
+  animated.push({ type: 'pulse', mesh: membrane, speed: 1.2, amount: 0.045 });
+  disposables.push(membrane.geometry, membrane.material);
+
+  const nucleus = new THREE.Mesh(new THREE.SphereGeometry(1.18, 48, 48), makeMaterial('#7c3cff', 0.5));
+  nucleus.position.set(-2.3, -0.3, 0.2);
+  nucleus.userData = { name: 'Nucleus', metric: 92 };
+  scene.add(nucleus);
+  targets.push(nucleus);
+  animated.push({ type: 'float', mesh: nucleus, offset: 1.1 });
+  disposables.push(nucleus.geometry, nucleus.material);
+
+  const dnaGroup = new THREE.Group();
+  const dnaMaterialA = makeMaterial('#00e5ff', 0.65);
+  const dnaMaterialB = makeMaterial('#ff4fd8', 0.62);
+  const bondMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.24 });
+  Array.from({ length: 34 }, (_, index) => {
+    const y = (index - 16) * 0.18;
+    const angle = index * 0.55;
+    const left = new THREE.Vector3(Math.cos(angle) * 0.82, y, Math.sin(angle) * 0.82);
+    const right = new THREE.Vector3(Math.cos(angle + Math.PI) * 0.82, y, Math.sin(angle + Math.PI) * 0.82);
+    const sphereA = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), dnaMaterialA);
+    const sphereB = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), dnaMaterialB);
+    sphereA.position.copy(left);
+    sphereB.position.copy(right);
+    sphereA.userData = { name: 'DNA Helix', metric: 88 };
+    sphereB.userData = { name: 'DNA Helix', metric: 88 };
+    const bond = new THREE.Line(new THREE.BufferGeometry().setFromPoints([left, right]), bondMaterial);
+    dnaGroup.add(sphereA, sphereB, bond);
+    targets.push(sphereA, sphereB);
+    disposables.push(sphereA.geometry, sphereB.geometry, bond.geometry);
+    return null;
+  });
+  dnaGroup.position.set(1.9, 0.2, 0);
+  dnaGroup.rotation.z = 0.25;
+  scene.add(dnaGroup);
+  animated.push({ type: 'dna', mesh: dnaGroup });
+  disposables.push(dnaMaterialA, dnaMaterialB, bondMaterial);
+
+  Array.from({ length: 4 }, (_, index) => {
+    const organelle = new THREE.Mesh(new THREE.SphereGeometry(0.46, 28, 28), makeMaterial(index % 2 ? '#ffd166' : '#7cffc4', 0.38));
+    const angle = (index / 4) * Math.PI * 2;
+    organelle.scale.set(1.55, 0.62, 0.8);
+    organelle.position.set(Math.cos(angle) * 3.5, Math.sin(index) * 0.7, Math.sin(angle) * 2.4);
+    organelle.userData = { name: 'Mitochondria', metric: 76 };
+    scene.add(organelle);
+    targets.push(organelle);
+    animated.push({ type: 'float', mesh: organelle, offset: index * 0.6 });
+    disposables.push(organelle.geometry, organelle.material);
+    return organelle;
+  });
+
+  return { targets, animated };
+}
+
+function createAIScene(scene, disposables) {
+  const targets = [];
+  const animated = [];
+  const layers = [-4.2, -1.4, 1.4, 4.2];
+  const nodeCounts = [4, 6, 5, 3];
+  const nodeGrid = [];
+  const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.16 });
+
+  layers.forEach((x, layerIndex) => {
+    const layerNodes = [];
+    const count = nodeCounts[layerIndex];
+    Array.from({ length: count }, (_, nodeIndex) => {
+      const y = (nodeIndex - (count - 1) / 2) * 0.88;
+      const z = Math.sin(nodeIndex + layerIndex) * 0.3;
+      const label = layerIndex === 0 ? 'Input Layer' : layerIndex === layers.length - 1 ? 'Output Node' : 'Hidden Layer';
+      const metric = layerIndex === layers.length - 1 ? 94 : 72 + layerIndex * 6;
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.22, 24, 24), makeMaterial(layerIndex % 2 ? '#ff4fd8' : '#00e5ff', 0.75));
+      mesh.position.set(x, y, z);
+      mesh.userData = { name: label, metric };
+      scene.add(mesh);
+      targets.push(mesh);
+      layerNodes.push(mesh);
+      animated.push({ type: 'node', mesh, offset: layerIndex + nodeIndex * 0.3 });
+      disposables.push(mesh.geometry, mesh.material);
+      return mesh;
+    });
+    nodeGrid.push(layerNodes);
+  });
+
+  for (let layerIndex = 0; layerIndex < nodeGrid.length - 1; layerIndex += 1) {
+    nodeGrid[layerIndex].forEach((source, sourceIndex) => {
+      nodeGrid[layerIndex + 1].forEach((target, targetIndex) => {
+        if ((sourceIndex + targetIndex + layerIndex) % 2 === 0) {
+          const line = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints([source.position, target.position]),
+            lineMaterial,
+          );
+          scene.add(line);
+          disposables.push(line.geometry);
+        }
+      });
+    });
+  }
+  disposables.push(lineMaterial);
+
+  Array.from({ length: 8 }, (_, index) => {
+    const token = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.28, 0.28), makeMaterial(index % 2 ? '#7cffc4' : '#ffd166', 0.55));
+    token.userData = { name: 'Training Signal', metric: 87 };
+    scene.add(token);
+    targets.push(token);
+    animated.push({ type: 'token', mesh: token, offset: index * 0.6 });
+    disposables.push(token.geometry, token.material);
+    return token;
+  });
+
+  return { targets, animated };
+}
+
+function disposeItem(item) {
+  if (!item) return;
+  if (Array.isArray(item)) {
+    item.forEach(disposeItem);
+    return;
+  }
+  if (typeof item.dispose === 'function') {
+    item.dispose();
+  }
+}
 
 export default function VRScene({ activeSubject = 'Astronomy' }) {
   const mountRef = useRef(null);
-  const planetRefs = useRef([]);
-  const [selected, setSelected] = useState('Earth');
+  const targetRefs = useRef([]);
+  const profile = sceneProfiles[activeSubject] ?? sceneProfiles.Astronomy;
+  const [selected, setSelected] = useState(profile.defaultObject);
+
+  useEffect(() => {
+    setSelected((sceneProfiles[activeSubject] ?? sceneProfiles.Astronomy).defaultObject);
+  }, [activeSubject]);
 
   useEffect(() => {
     if (!mountRef.current) return undefined;
 
     const mount = mountRef.current;
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x070814, 0.04);
+    scene.fog = new THREE.FogExp2(0x070814, activeSubject === 'Biology' ? 0.032 : 0.04);
 
     const camera = new THREE.PerspectiveCamera(60, mount.clientWidth / mount.clientHeight, 0.1, 100);
-    camera.position.set(0, 6.8, 16);
+    camera.position.set(0, activeSubject === 'AI Literacy' ? 4.7 : 6.8, activeSubject === 'AI Literacy' ? 13 : 16);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -31,91 +362,27 @@ export default function VRScene({ activeSubject = 'Astronomy' }) {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     mount.appendChild(renderer.domElement);
 
-    const ambient = new THREE.AmbientLight(0x8bdfff, 0.7);
-    scene.add(ambient);
+    const disposables = [];
+    scene.add(new THREE.AmbientLight(0x8bdfff, 0.8));
 
-    const sunLight = new THREE.PointLight(0xffd166, 9, 40);
-    sunLight.position.set(0, 0, 0);
-    scene.add(sunLight);
+    const keyLight = new THREE.PointLight(0xffd166, activeSubject === 'Astronomy' ? 9 : 4.8, 44);
+    keyLight.position.set(0, 1, 1);
+    scene.add(keyLight);
 
-    const starsGeometry = new THREE.BufferGeometry();
-    const starPositions = [];
-    for (let i = 0; i < 900; i += 1) {
-      const radius = 22 + Math.random() * 34;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      starPositions.push(
-        radius * Math.sin(phi) * Math.cos(theta),
-        radius * Math.sin(phi) * Math.sin(theta),
-        radius * Math.cos(phi),
-      );
-    }
-    starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
-    const stars = new THREE.Points(
-      starsGeometry,
-      new THREE.PointsMaterial({ color: 0xbdf8ff, size: 0.045, transparent: true, opacity: 0.84 }),
-    );
-    scene.add(stars);
+    const rimLight = new THREE.PointLight(0xff4fd8, 2.4, 34);
+    rimLight.position.set(-6, 5, 8);
+    scene.add(rimLight);
 
-    const sun = new THREE.Mesh(
-      new THREE.SphereGeometry(1.05, 48, 48),
-      new THREE.MeshStandardMaterial({
-        color: 0xffd166,
-        emissive: 0xff7a33,
-        emissiveIntensity: 1.5,
-        roughness: 0.3,
-      }),
-    );
-    scene.add(sun);
+    const stars = addStarfield(scene, disposables);
+    const sceneFactory = {
+      Astronomy: createAstronomyScene,
+      Physics: createPhysicsScene,
+      Biology: createBiologyScene,
+      'AI Literacy': createAIScene,
+    }[activeSubject] ?? createAstronomyScene;
 
-    const halo = new THREE.Mesh(
-      new THREE.SphereGeometry(1.45, 48, 48),
-      new THREE.MeshBasicMaterial({ color: 0xff4fd8, transparent: true, opacity: 0.12, side: THREE.BackSide }),
-    );
-    scene.add(halo);
-
-    const orbitMaterial = new THREE.LineBasicMaterial({ color: 0x7cf3ff, transparent: true, opacity: 0.16 });
-    planetRefs.current = planetData.map((planet) => {
-      const orbit = new THREE.LineLoop(
-        new THREE.BufferGeometry().setFromPoints(
-          Array.from({ length: 160 }, (_, index) => {
-            const angle = (index / 160) * Math.PI * 2;
-            return new THREE.Vector3(Math.cos(angle) * planet.distance, 0, Math.sin(angle) * planet.distance);
-          }),
-        ),
-        orbitMaterial,
-      );
-      scene.add(orbit);
-
-      const group = new THREE.Group();
-      group.rotation.z = planet.tilt;
-
-      const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(planet.radius, 40, 40),
-        new THREE.MeshStandardMaterial({
-          color: planet.color,
-          emissive: planet.color,
-          emissiveIntensity: 0.12,
-          metalness: 0.12,
-          roughness: 0.55,
-        }),
-      );
-      mesh.position.x = planet.distance;
-      mesh.userData = planet;
-      group.add(mesh);
-
-      if (planet.name === 'Saturn') {
-        const ring = new THREE.Mesh(
-          new THREE.RingGeometry(1.14, 1.62, 64),
-          new THREE.MeshBasicMaterial({ color: 0xffe4a8, transparent: true, opacity: 0.48, side: THREE.DoubleSide }),
-        );
-        ring.rotation.x = Math.PI / 2.8;
-        mesh.add(ring);
-      }
-
-      scene.add(group);
-      return { group, mesh, ...planet };
-    });
+    const { targets, animated } = sceneFactory(scene, disposables);
+    targetRefs.current = targets;
 
     const pointer = new THREE.Vector2(0, 0);
     const raycaster = new THREE.Raycaster();
@@ -129,7 +396,7 @@ export default function VRScene({ activeSubject = 'Astronomy' }) {
 
     const onClick = () => {
       raycaster.setFromCamera(pointer, camera);
-      const hits = raycaster.intersectObjects(planetRefs.current.map((planet) => planet.mesh));
+      const hits = raycaster.intersectObjects(targetRefs.current, true);
       if (hits[0]?.object?.userData?.name) {
         setSelected(hits[0].object.userData.name);
       }
@@ -143,26 +410,59 @@ export default function VRScene({ activeSubject = 'Astronomy' }) {
 
     const animate = () => {
       const elapsed = clock.getElapsedTime();
-      sun.rotation.y = elapsed * 0.28;
-      halo.scale.setScalar(1 + Math.sin(elapsed * 1.8) * 0.035);
       stars.rotation.y = elapsed * 0.025;
 
-      planetRefs.current.forEach((planet) => {
-        planet.group.rotation.y = elapsed * planet.speed;
-        planet.mesh.rotation.y += 0.011;
-        planet.mesh.position.y = Math.sin(elapsed * 1.4 + planet.distance) * 0.18;
-        const isSelected = planet.name === selected;
-        const isHovered = planet.mesh === hovered;
-        planet.mesh.scale.lerp(new THREE.Vector3(isSelected || isHovered ? 1.18 : 1, isSelected || isHovered ? 1.18 : 1, isSelected || isHovered ? 1.18 : 1), 0.08);
+      animated.forEach((item) => {
+        if (item.type === 'spin') item.mesh.rotation.y = elapsed * item.speed;
+        if (item.type === 'pulse') item.mesh.scale.setScalar(1 + Math.sin(elapsed * item.speed) * item.amount);
+        if (item.type === 'planet') {
+          item.group.rotation.y = elapsed * item.speed;
+          item.mesh.rotation.y += 0.011;
+          item.mesh.position.y = Math.sin(elapsed * 1.4 + item.distance) * 0.18;
+        }
+        if (item.type === 'electron') {
+          item.group.rotation.y = elapsed * item.speed;
+          item.mesh.position.y = Math.sin(elapsed * 2 + item.distance) * 0.1;
+        }
+        if (item.type === 'field') {
+          item.mesh.material.opacity = 0.28 + Math.sin(elapsed * 2 + item.offset) * 0.18;
+          item.mesh.scale.y = 0.8 + Math.sin(elapsed * 1.6 + item.offset) * 0.18;
+        }
+        if (item.type === 'float') {
+          item.mesh.position.y += Math.sin(elapsed * 1.5 + item.offset) * 0.002;
+          item.mesh.rotation.y += 0.006;
+        }
+        if (item.type === 'dna') {
+          item.mesh.rotation.y = elapsed * 0.45;
+          item.mesh.position.y = Math.sin(elapsed * 1.2) * 0.18;
+        }
+        if (item.type === 'node') {
+          const pulse = 1 + Math.sin(elapsed * 2.2 + item.offset) * 0.08;
+          item.mesh.scale.setScalar(pulse);
+        }
+        if (item.type === 'token') {
+          const travel = ((elapsed * 0.7 + item.offset) % 1) * 8.4 - 4.2;
+          item.mesh.position.set(travel, Math.sin(elapsed * 2 + item.offset) * 2.4, Math.cos(elapsed + item.offset) * 0.8);
+          item.mesh.rotation.x += 0.02;
+          item.mesh.rotation.y += 0.028;
+        }
       });
 
       raycaster.setFromCamera(pointer, camera);
-      const hits = raycaster.intersectObjects(planetRefs.current.map((planet) => planet.mesh));
+      const hits = raycaster.intersectObjects(targetRefs.current, true);
       hovered = hits[0]?.object ?? null;
       renderer.domElement.style.cursor = hovered ? 'pointer' : 'grab';
 
+      targetRefs.current.forEach((target) => {
+        const isSelected = target.userData?.name === selected;
+        const isHovered = target === hovered;
+        const scale = isSelected || isHovered ? 1.18 : 1;
+        target.scale.lerp(new THREE.Vector3(scale, scale, scale), 0.08);
+      });
+
+      const targetY = activeSubject === 'AI Literacy' ? 4.4 : 6.4;
       camera.position.x += (pointer.x * 1.4 - camera.position.x) * 0.035;
-      camera.position.y += (6.4 + pointer.y * 0.8 - camera.position.y) * 0.035;
+      camera.position.y += (targetY + pointer.y * 0.8 - camera.position.y) * 0.035;
       camera.lookAt(0, 0, 0);
 
       renderer.render(scene, camera);
@@ -186,16 +486,44 @@ export default function VRScene({ activeSubject = 'Astronomy' }) {
       renderer.domElement.removeEventListener('pointermove', onPointerMove);
       renderer.domElement.removeEventListener('click', onClick);
       renderer.dispose();
-      starsGeometry.dispose();
+      disposables.forEach(disposeItem);
       mount.removeChild(renderer.domElement);
     };
-  }, [selected]);
+  }, [activeSubject, selected]);
 
-  const selectedPlanet = planetData.find((planet) => planet.name === selected) ?? planetData[2];
+  const selectedObject = useMemo(() => {
+    const allObjects = {
+      Astronomy: [
+        ...planetData.map((planet) => ({ name: planet.name, metric: planet.metric })),
+      ],
+      Physics: [
+        { name: 'Electron Cloud', metric: 5.4 },
+        { name: 'Energy Orbital', metric: 7.2 },
+        { name: 'Magnetic Field', metric: 74 },
+        { name: 'Proton Core', metric: 21 },
+        { name: 'Neutron Core', metric: 24 },
+      ],
+      Biology: [
+        { name: 'DNA Helix', metric: 88 },
+        { name: 'Nucleus', metric: 92 },
+        { name: 'Mitochondria', metric: 76 },
+      ],
+      'AI Literacy': [
+        { name: 'Input Layer', metric: 78 },
+        { name: 'Hidden Layer', metric: 84 },
+        { name: 'Output Node', metric: 94 },
+        { name: 'Training Signal', metric: 87 },
+      ],
+    };
+    return (allObjects[activeSubject] ?? allObjects.Astronomy).find((item) => item.name === selected) ?? {
+      name: profile.defaultObject,
+      metric: 0,
+    };
+  }, [activeSubject, profile.defaultObject, selected]);
 
   return (
     <div className="relative h-[420px] min-h-[360px] overflow-hidden rounded-[8px] border border-white/10 bg-void shadow-neon md:h-[540px]">
-      <div ref={mountRef} className="absolute inset-0" aria-label={`${activeSubject} VR solar system simulation`} />
+      <div ref={mountRef} className="absolute inset-0" aria-label={`${activeSubject} VR simulation`} />
       <div className="pointer-events-none absolute inset-x-4 top-4 flex flex-wrap items-center justify-between gap-3">
         <div className="glass-subtle rounded-[8px] px-4 py-3">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-pulse">VR Simulation</p>
@@ -203,19 +531,19 @@ export default function VRScene({ activeSubject = 'Astronomy' }) {
         </div>
         <div className="glass-subtle rounded-[8px] px-4 py-3 text-right">
           <p className="text-xs text-white/58">Selected Object</p>
-          <p className="font-display text-lg font-semibold text-mint">{selectedPlanet.name}</p>
+          <p className="font-display text-lg font-semibold text-mint">{selectedObject.name}</p>
         </div>
       </div>
       <div className="pointer-events-none absolute bottom-4 left-4 right-4 grid gap-3 md:grid-cols-[1fr_auto]">
         <div className="glass-subtle rounded-[8px] p-4">
-          <p className="text-sm leading-6 text-white/78">
-            Drag your cursor across the viewport to guide the camera. Select a floating planet to lock the lesson context
-            and surface its orbital telemetry.
-          </p>
+          <p className="text-sm leading-6 text-white/78">{profile.instruction}</p>
         </div>
         <div className="glass-subtle rounded-[8px] p-4">
-          <p className="text-xs text-white/54">Orbital velocity</p>
-          <p className="font-display text-2xl font-bold text-white">{selectedPlanet.speed.toFixed(2)}x</p>
+          <p className="text-xs text-white/54">{profile.statLabel}</p>
+          <p className="font-display text-2xl font-bold text-white">
+            {selectedObject.metric.toFixed(profile.statSuffix === 'x' ? 2 : 0)}
+            {profile.statSuffix}
+          </p>
         </div>
       </div>
     </div>
