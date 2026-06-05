@@ -32,6 +32,145 @@ const sceneProfiles = {
   },
 };
 
+const moduleFocus = {
+  Astronomy: {
+    'Solar System': {
+      defaultObject: 'Earth',
+      statLabel: 'Orbital velocity',
+      statSuffix: 'x',
+      metric: 0.82,
+      instruction: 'Select planets, compare orbit paths, and adjust speed to observe relative motion in the solar system.',
+      concept: 'Planet Scale Node',
+    },
+    'Orbital Motion': {
+      defaultObject: 'Gravity Well',
+      statLabel: 'Stability score',
+      statSuffix: '%',
+      metric: 86,
+      instruction: 'Use the active orbit layer to compare gravity, distance, and forward velocity as a stable motion system.',
+      concept: 'Gravity Well',
+    },
+    'Moon Phases': {
+      defaultObject: 'Moon Phase Arc',
+      statLabel: 'Illumination',
+      statSuffix: '%',
+      metric: 64,
+      instruction: 'Follow the moon phase arc and inspect how Sun, Earth, and Moon positions change the visible phase.',
+      concept: 'Moon Phase Arc',
+    },
+    'Stellar Life Cycle': {
+      defaultObject: 'Stellar Stage Map',
+      statLabel: 'Fusion intensity',
+      statSuffix: '%',
+      metric: 91,
+      instruction: 'Select stages in the stellar sequence to compare nebula, main sequence, giant, and supernova states.',
+      concept: 'Stellar Stage Map',
+    },
+  },
+  Physics: {
+    Forces: {
+      defaultObject: 'Force Vector',
+      statLabel: 'Net force',
+      statSuffix: ' N',
+      metric: 42,
+      instruction: 'Select force vectors and field markers to see how push, pull, mass, and acceleration relate.',
+      concept: 'Force Vector',
+    },
+    'Energy Transfer': {
+      defaultObject: 'Electron Cloud',
+      statLabel: 'Energy state',
+      statSuffix: ' eV',
+      metric: 5.4,
+      instruction: 'Track electrons as energy moves between orbitals and creates visible state changes.',
+      concept: 'Energy Packet',
+    },
+    Waves: {
+      defaultObject: 'Wave Crest',
+      statLabel: 'Amplitude',
+      statSuffix: '%',
+      metric: 72,
+      instruction: 'Select wave crests and nodes to compare amplitude, frequency, and wavelength in motion.',
+      concept: 'Wave Crest',
+    },
+    'Electric Fields': {
+      defaultObject: 'Charge Field',
+      statLabel: 'Field strength',
+      statSuffix: '%',
+      metric: 79,
+      instruction: 'Inspect charges and field lines to understand attraction, repulsion, and direction of force.',
+      concept: 'Charge Field',
+    },
+  },
+  Biology: {
+    'Cell Structure': {
+      defaultObject: 'Nucleus',
+      statLabel: 'Cell activity',
+      statSuffix: '%',
+      metric: 92,
+      instruction: 'Select cell structures to connect organelle position with biological function.',
+      concept: 'Organelle Map',
+    },
+    'DNA & Genes': {
+      defaultObject: 'DNA Helix',
+      statLabel: 'Gene signal',
+      statSuffix: '%',
+      metric: 88,
+      instruction: 'Inspect the DNA layer and compare base-pair structure with gene-level information.',
+      concept: 'Gene Segment',
+    },
+    Mitochondria: {
+      defaultObject: 'ATP Stream',
+      statLabel: 'Energy output',
+      statSuffix: '%',
+      metric: 76,
+      instruction: 'Follow energy packets around mitochondria to connect structure with ATP production.',
+      concept: 'ATP Stream',
+    },
+    Ecosystems: {
+      defaultObject: 'Food Web Node',
+      statLabel: 'Ecosystem balance',
+      statSuffix: '%',
+      metric: 69,
+      instruction: 'Select ecosystem nodes and observe how energy and dependency links form a food web.',
+      concept: 'Food Web Node',
+    },
+  },
+  'AI Literacy': {
+    'Data Inputs': {
+      defaultObject: 'Input Token',
+      statLabel: 'Data quality',
+      statSuffix: '%',
+      metric: 78,
+      instruction: 'Select input tokens to see how data quality and context shape the model pipeline.',
+      concept: 'Input Token',
+    },
+    'Neural Networks': {
+      defaultObject: 'Hidden Layer',
+      statLabel: 'Model confidence',
+      statSuffix: '%',
+      metric: 84,
+      instruction: 'Inspect nodes, hidden layers, and connections to understand how models transform inputs into outputs.',
+      concept: 'Hidden Layer',
+    },
+    Prompting: {
+      defaultObject: 'Prompt Chain',
+      statLabel: 'Prompt clarity',
+      statSuffix: '%',
+      metric: 81,
+      instruction: 'Follow prompt tokens through the response path and compare instruction clarity with output quality.',
+      concept: 'Prompt Chain',
+    },
+    'AI Ethics': {
+      defaultObject: 'Ethics Checkpoint',
+      statLabel: 'Risk awareness',
+      statSuffix: '%',
+      metric: 89,
+      instruction: 'Select ethics checkpoints to discuss bias, privacy, transparency, and responsible classroom use.',
+      concept: 'Ethics Checkpoint',
+    },
+  },
+};
+
 const planetData = [
   { name: 'Mercury', color: '#b9a68b', radius: 0.42, distance: 2.1, speed: 1.45, tilt: 0.1, metric: 1.45 },
   { name: 'Venus', color: '#f3b46f', radius: 0.58, distance: 3.0, speed: 1.05, tilt: -0.22, metric: 1.05 },
@@ -325,6 +464,57 @@ function createAIScene(scene, disposables) {
   return { targets, animated };
 }
 
+function createSubtopicLayer(scene, disposables, activeSubject, activeSubtopic) {
+  const focus = moduleFocus[activeSubject]?.[activeSubtopic];
+  if (!focus) return { targets: [], animated: [] };
+
+  const targets = [];
+  const animated = [];
+  const colorSets = {
+    Astronomy: [0x00e5ff, 0xffd166, 0xff4fd8, 0x7c3cff],
+    Physics: [0x7cffc4, 0x00e5ff, 0xff4fd8, 0xffffff],
+    Biology: [0x7cffc4, 0xff4fd8, 0xffd166, 0x00e5ff],
+    'AI Literacy': [0xff4fd8, 0x7c3cff, 0x00e5ff, 0x7cffc4],
+  };
+  const colors = colorSets[activeSubject] ?? colorSets.Astronomy;
+  const materialLine = new THREE.LineBasicMaterial({ color: colors[0], transparent: true, opacity: 0.28 });
+  const points = [];
+
+  Array.from({ length: 5 }, (_, index) => {
+    const x = (index - 2) * 1.35;
+    const y = 2.25 + Math.sin(index) * 0.28;
+    const z = -1.2 + Math.cos(index * 1.3) * 0.55;
+    const geometry =
+      index % 3 === 0
+        ? new THREE.TorusGeometry(0.28, 0.055, 14, 32)
+        : index % 3 === 1
+          ? new THREE.OctahedronGeometry(0.34)
+          : new THREE.BoxGeometry(0.42, 0.42, 0.42);
+    const material =
+      index === 2
+        ? makeMaterial(`#${colors[1].toString(16).padStart(6, '0')}`, 0.75)
+        : makeMaterial(`#${colors[index % colors.length].toString(16).padStart(6, '0')}`, 0.42);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(x, y, z);
+    mesh.userData = {
+      name: index === 2 ? focus.defaultObject : `${focus.concept} ${index + 1}`,
+      metric: Math.max(1, focus.metric - Math.abs(index - 2) * 7),
+    };
+    scene.add(mesh);
+    targets.push(mesh);
+    points.push(mesh.position);
+    animated.push({ type: 'subtopic', mesh, offset: index, subject: activeSubject });
+    disposables.push(geometry, material);
+    return mesh;
+  });
+
+  const path = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), materialLine);
+  scene.add(path);
+  disposables.push(path.geometry, materialLine);
+
+  return { targets, animated };
+}
+
 function disposeItem(item) {
   if (!item) return;
   if (Array.isArray(item)) {
@@ -336,15 +526,20 @@ function disposeItem(item) {
   }
 }
 
-export default function VRScene({ activeSubject = 'Astronomy' }) {
+export default function VRScene({
+  activeSubject = 'Astronomy',
+  activeSubtopic = 'Solar System',
+  speedMultiplier = 1,
+  guidedMode = true,
+}) {
   const mountRef = useRef(null);
   const targetRefs = useRef([]);
-  const profile = sceneProfiles[activeSubject] ?? sceneProfiles.Astronomy;
+  const profile = moduleFocus[activeSubject]?.[activeSubtopic] ?? sceneProfiles[activeSubject] ?? sceneProfiles.Astronomy;
   const [selected, setSelected] = useState(profile.defaultObject);
 
   useEffect(() => {
-    setSelected((sceneProfiles[activeSubject] ?? sceneProfiles.Astronomy).defaultObject);
-  }, [activeSubject]);
+    setSelected((moduleFocus[activeSubject]?.[activeSubtopic] ?? sceneProfiles[activeSubject] ?? sceneProfiles.Astronomy).defaultObject);
+  }, [activeSubject, activeSubtopic]);
 
   useEffect(() => {
     if (!mountRef.current) return undefined;
@@ -381,7 +576,10 @@ export default function VRScene({ activeSubject = 'Astronomy' }) {
       'AI Literacy': createAIScene,
     }[activeSubject] ?? createAstronomyScene;
 
-    const { targets, animated } = sceneFactory(scene, disposables);
+    const baseScene = sceneFactory(scene, disposables);
+    const subtopicScene = createSubtopicLayer(scene, disposables, activeSubject, activeSubtopic);
+    const targets = [...baseScene.targets, ...subtopicScene.targets];
+    const animated = [...baseScene.animated, ...subtopicScene.animated];
     targetRefs.current = targets;
 
     const pointer = new THREE.Vector2(0, 0);
@@ -409,7 +607,7 @@ export default function VRScene({ activeSubject = 'Astronomy' }) {
     let frameId = 0;
 
     const animate = () => {
-      const elapsed = clock.getElapsedTime();
+      const elapsed = clock.getElapsedTime() * speedMultiplier;
       stars.rotation.y = elapsed * 0.025;
 
       animated.forEach((item) => {
@@ -445,6 +643,11 @@ export default function VRScene({ activeSubject = 'Astronomy' }) {
           item.mesh.position.set(travel, Math.sin(elapsed * 2 + item.offset) * 2.4, Math.cos(elapsed + item.offset) * 0.8);
           item.mesh.rotation.x += 0.02;
           item.mesh.rotation.y += 0.028;
+        }
+        if (item.type === 'subtopic') {
+          item.mesh.rotation.x += 0.012 + item.offset * 0.001;
+          item.mesh.rotation.y += 0.018;
+          item.mesh.position.y += Math.sin(elapsed * 1.8 + item.offset) * 0.0025;
         }
       });
 
@@ -489,7 +692,7 @@ export default function VRScene({ activeSubject = 'Astronomy' }) {
       disposables.forEach(disposeItem);
       mount.removeChild(renderer.domElement);
     };
-  }, [activeSubject, selected]);
+  }, [activeSubject, activeSubtopic, guidedMode, selected, speedMultiplier]);
 
   const selectedObject = useMemo(() => {
     const allObjects = {
@@ -515,20 +718,34 @@ export default function VRScene({ activeSubject = 'Astronomy' }) {
         { name: 'Training Signal', metric: 87 },
       ],
     };
-    return (allObjects[activeSubject] ?? allObjects.Astronomy).find((item) => item.name === selected) ?? {
+    const focusObject = moduleFocus[activeSubject]?.[activeSubtopic]
+      ? [
+          {
+            name: moduleFocus[activeSubject][activeSubtopic].defaultObject,
+            metric: moduleFocus[activeSubject][activeSubtopic].metric,
+          },
+        ]
+      : [];
+    return [...focusObject, ...(allObjects[activeSubject] ?? allObjects.Astronomy)].find((item) => item.name === selected) ?? {
       name: profile.defaultObject,
       metric: 0,
     };
-  }, [activeSubject, profile.defaultObject, selected]);
+  }, [activeSubject, activeSubtopic, profile.defaultObject, selected]);
 
   return (
     <div className="relative h-[420px] min-h-[360px] overflow-hidden rounded-[8px] border border-white/10 bg-void shadow-neon md:h-[540px]">
-      <div ref={mountRef} className="absolute inset-0" aria-label={`${activeSubject} VR simulation`} />
+      <div ref={mountRef} className="absolute inset-0" aria-label={`${activeSubject} ${activeSubtopic} VR simulation`} />
       <div className="pointer-events-none absolute inset-x-4 top-4 flex flex-wrap items-center justify-between gap-3">
         <div className="glass-subtle rounded-[8px] px-4 py-3">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-pulse">VR Simulation</p>
-          <h3 className="font-display text-xl font-bold text-white sm:text-2xl">{activeSubject} Lab</h3>
+          <h3 className="font-display text-xl font-bold text-white sm:text-2xl">{activeSubtopic}</h3>
         </div>
+        {guidedMode && (
+          <div className="glass-subtle rounded-[8px] px-4 py-3">
+            <p className="text-xs text-white/58">Guided Mode</p>
+            <p className="font-display text-lg font-semibold text-pulse">Interactive labels on</p>
+          </div>
+        )}
         <div className="glass-subtle rounded-[8px] px-4 py-3 text-right">
           <p className="text-xs text-white/58">Selected Object</p>
           <p className="font-display text-lg font-semibold text-mint">{selectedObject.name}</p>

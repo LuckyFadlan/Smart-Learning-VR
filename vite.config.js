@@ -5,6 +5,7 @@ export default defineConfig({
   base: '/Smart-Learning-VR/',
   plugins: [react()],
   build: {
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       output: {
         manualChunks: {
